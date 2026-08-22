@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Snapchat Oto-Accept Paneli</title>
+  <style>
+    :root {
+      --bg: #0e1015; --panel: #171a21; --panel2: #1e222b; --line: #2a2f3a;
+      --text: #e6e8ee; --muted: #9aa2b1; --accent: #fffc00; --accent2: #38bdf8;
+      --green: #34d399; --red: #f87171; --blue: #60a5fa; --cyan: #22d3ee; --gray: #6b7280;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font: 14px/1.5 system-ui, "Segoe UI", Roboto, sans-serif;
+    }
+    header {
+      display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+      padding: 14px 20px; background: var(--panel); border-bottom: 1px solid var(--line);
+      position: sticky; top: 0; z-index: 5;
+    }
+    header h1 { font-size: 16px; margin: 0; letter-spacing: .3px; }
+    header h1 .dot { color: var(--accent); }
+    .spacer { flex: 1; }
+    .pill {
+      font-size: 12px; padding: 3px 10px; border-radius: 999px;
+      background: var(--panel2); border: 1px solid var(--line); color: var(--muted);
+    }
+    .pill.on { color: #05201a; background: var(--green); border-color: var(--green); font-weight: 600; }
+    button {
+      font: inherit; cursor: pointer; border-radius: 8px; border: 1px solid var(--line);
+      background: var(--panel2); color: var(--text); padding: 8px 14px;
+    }
+    button:hover { border-color: #3a4150; }
+    button.primary { background: var(--accent); color: #1a1a00; border-color: var(--accent); font-weight: 700; }
+    button.danger { background: transparent; color: var(--red); border-color: #4a2a2a; }
+    button.stop { background: var(--red); color: #2a0000; border-color: var(--red); font-weight: 700; }
+    button:disabled { opacity: .45; cursor: not-allowed; }
+    main { padding: 20px; max-width: 1100px; margin: 0 auto; display: grid; gap: 18px; }
+    .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+    .card h2 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
+    .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+    .field { display: flex; flex-direction: column; gap: 5px; }
+    .field label { font-size: 12px; color: var(--muted); }
+    .field small { color: var(--gray); font-size: 11px; }
+    input[type=text], input[type=password], input[type=number] {
+      background: var(--panel2); border: 1px solid var(--line); color: var(--text);
+      border-radius: 8px; padding: 8px 10px; min-width: 120px;
+    }
+    input:focus { outline: none; border-color: var(--accent2); }
+    .check { display: flex; align-items: center; gap: 8px; }
+    .check input { width: 16px; height: 16px; accent-color: var(--accent2); }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+    th { font-size: 11px; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); }
+    td .u { font-weight: 600; }
+    .badge { font-size: 12px; padding: 3px 9px; border-radius: 999px; white-space: nowrap; display: inline-block; }
+    .b-idle, .b-stopped { background: #23262e; color: var(--muted); }
+    .b-running { background: rgba(96,165,250,.15); color: var(--blue); }
+    .b-waiting { background: rgba(34,211,238,.13); color: var(--cyan); }
+    .b-done { background: rgba(52,211,153,.15); color: var(--green); }
+    .b-error { background: rgba(248,113,113,.15); color: var(--red); }
+    .count { font-variant-numeric: tabular-nums; font-weight: 700; }
+    .muted { color: var(--muted); }
+    .err { color: var(--red); font-size: 12px; max-width: 220px; }
+    .mini { padding: 5px 9px; font-size: 12px; }
+    .empty { color: var(--gray); padding: 18px 4px; }
+    #log {
+      background: #0a0c10; border: 1px solid var(--line); border-radius: 10px;
+      height: 260px; overflow: auto; padding: 10px 12px; font-family: ui-monospace, Menlo, Consolas, monospace;
+      font-size: 12.5px; white-space: pre-wrap; word-break: break-word;
+    }
+    #log .l { color: var(--muted); }
+    #log .l b { color: var(--accent2); font-weight: 600; }
+    #log .l.err b, #log .l.err { color: var(--red); }
+    .pgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+    .pcard { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: #000; }
+    .pcard .pcap { font-size: 12px; padding: 6px 9px; background: var(--panel2); color: var(--text); display: flex; justify-content: space-between; }
+    .pcard .pcap .live { color: var(--red); font-weight: 700; }
+    .pcard img { width: 100%; display: block; cursor: zoom-in; aspect-ratio: 16/10; object-fit: cover; background: #000; }
+    .tabs { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+    .tabs button { padding: 5px 10px; font-size: 12px; }
+    .tabs button.active { border-color: var(--accent2); color: var(--accent2); }
+    /* modal */
+    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.7); display: none; align-items: center; justify-content: center; z-index: 20; padding: 20px; }
+    .overlay.show { display: flex; }
+    .overlay img { max-width: 100%; max-height: 90vh; border-radius: 8px; border: 1px solid var(--line); }
+    .overlay .close { position: absolute; top: 16px; right: 20px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Snapchat <span class="dot">●</span> Oto-Accept Paneli</h1>
+    <span id="runPill" class="pill">Dur: durdu</span>
+    <div class="spacer"></div>
+    <button id="startBtn" class="primary">▶ Başlat</button>
+    <button id="stopBtn" class="stop" disabled>■ Durdur</button>
+  </header>
+
+  <main>
+    <!-- Ayarlar -->
+    <section class="card">
+      <h2>Ayarlar</h2>
+      <div class="row">
+        <div class="field">
+          <label>Kaç accept (tur başına)</label>
+          <input type="number" id="maxAccepts" min="0" step="1" value="0" />
+          <small>0 = sınırsız (biteni kadar)</small>
+        </div>
+        <div class="field">
+          <label>Kaç dakikada bir</label>
+          <input type="number" id="intervalMinutes" min="0" step="0.5" value="5" />
+          <small>tur bitince bu kadar bekler</small>
+        </div>
+        <div class="field">
+          <label>Tarayıcı modu</label>
+          <div class="check" style="height:37px">
+            <input type="checkbox" id="headless" />
+            <label for="headless" style="cursor:pointer">Headless (gizli çalıştır)</label>
+          </div>
+        </div>
+        <button id="saveSettings">Ayarları kaydet</button>
+      </div>
+    </section>
+
+    <!-- Hesap ekle -->
+    <section class="card">
+      <h2>Hesap ekle</h2>
+      <form id="addForm" class="row">
+        <div class="field">
+          <label>Kullanıcı adı</label>
+          <input type="text" id="u" autocomplete="off" placeholder="kullanici" />
+        </div>
+        <div class="field">
+          <label>Şifre</label>
+          <input type="password" id="p" autocomplete="new-password" placeholder="••••••" />
+        </div>
+        <button class="primary" type="submit">+ Ekle</button>
+        <span id="addErr" class="err"></span>
+      </form>
+    </section>
+
+    <!-- Hesaplar -->
+    <section class="card">
+      <h2>Hesaplar</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Kullanıcı</th><th>Durum</th><th>Kabul</th><th>Son tur</th>
+            <th>Sıradaki</th><th>Hata</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <div id="noAcc" class="empty">Henüz hesap yok. Yukarıdan ekle.</div>
+    </section>
+
+    <!-- Canlı önizleme -->
+    <section class="card">
+      <h2>Canlı önizleme (headless dahil)</h2>
+      <div id="previews" class="pgrid"></div>
+      <div id="noPrev" class="empty">Çalışan hesap yok — Başlat'a basınca canlı görüntü burada belirir.</div>
+    </section>
+
+    <!-- Log -->
+    <section class="card">
+      <h2>Canlı log</h2>
+      <div class="tabs" id="logTabs"><button class="active" data-id="all">Tümü</button></div>
+      <div id="log"></div>
+    </section>
+  </main>
+
+  <div class="overlay" id="ov">
+    <button class="close" onclick="document.getElementById('ov').classList.remove('show')">✕ Kapat</button>
+    <img id="ovImg" alt="ekran görüntüsü" />
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    let state = { running: false, settings: {}, accounts: [] };
+    let logFilter = "all";
+    const userById = {};
+
+    // ---- API ----
+    const api = (url, opts) => fetch(url, opts).then((r) => r.json());
+
+    async function refresh() {
+      state = await api("/api/state");
+      applyState();
+    }
+
+    function applyState() {
+      state.accounts.forEach((a) => (userById[a.id] = a.username));
+      // ayarlar
+      $("maxAccepts").value = state.settings.maxAccepts ?? 0;
+      $("intervalMinutes").value = state.settings.intervalMinutes ?? 5;
+      $("headless").checked = !!state.settings.headless;
+      // çalışma durumu
+      $("runPill").textContent = state.running ? "Durum: çalışıyor" : "Durum: durdu";
+      $("runPill").classList.toggle("on", state.running);
+      $("startBtn").disabled = state.running;
+      $("stopBtn").disabled = !state.running;
+      renderRows();
+      renderTabs();
+      renderPreviews();
+    }
+
+    const badge = (s) => {
+      const map = {
+        idle: "Bekliyor", running: "Çalışıyor", waiting: "Sırada",
+        done: "Tamamlandı", error: "Hata", stopped: "Durduruldu",
+      };
+      return `<span class="badge b-${s || "idle"}">${map[s] || s || "—"}</span>`;
+    };
+    const fmtTime = (t) => (t ? new Date(t).toLocaleTimeString("tr-TR") : "—");
+
+    function renderRows() {
+      const tb = $("rows");
+      tb.innerHTML = "";
+      $("noAcc").style.display = state.accounts.length ? "none" : "block";
+      for (const a of state.accounts) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td class="u">${esc(a.username)}</td>
+          <td>${badge(a.status)}</td>
+          <td class="count">${a.accepted ?? 0}</td>
+          <td class="muted">${fmtTime(a.lastRun)}</td>
+          <td class="muted" data-next="${a.nextRunAt || ""}">${nextText(a)}</td>
+          <td class="err">${a.lastError ? esc(a.lastError) : ""}</td>
+          <td style="white-space:nowrap">
+            <button class="mini" onclick="showShot('${a.id}')">SS</button>
+            <button class="mini danger" onclick="delAcc('${a.id}')">Sil</button>
+          </td>`;
+        tb.appendChild(tr);
+      }
+    }
+
+    function nextText(a) {
+      if (a.status !== "waiting" || !a.nextRunAt) return "—";
+      const s = Math.max(0, Math.round((a.nextRunAt - Date.now()) / 1000));
+      const m = Math.floor(s / 60);
+      return m > 0 ? `${m}dk ${s % 60}s` : `${s}s`;
+    }
+    // geri sayımı canlı tut
+    setInterval(() => {
+      document.querySelectorAll("#rows td[data-next]").forEach((td) => {
+        const t = Number(td.getAttribute("data-next"));
+        if (!t) return;
+        const a = { status: "waiting", nextRunAt: t };
+        td.textContent = nextText(a);
+      });
+    }, 1000);
+
+    function renderTabs() {
+      const t = $("logTabs");
+      const cur = logFilter;
+      t.innerHTML = `<button data-id="all">Tümü</button>` +
+        state.accounts.map((a) => `<button data-id="${a.id}">${esc(a.username)}</button>`).join("");
+      [...t.children].forEach((b) => {
+        b.classList.toggle("active", b.dataset.id === cur);
+        b.onclick = () => { logFilter = b.dataset.id; renderTabs(); rerenderLog(); };
+      });
+    }
+
+    // ---- log ----
+    const logBox = $("log");
+    const logs = []; // tüm satırlar (filtreleme için saklanır)
+
+    function appendLogEl(l) {
+      const el = document.createElement("div");
+      el.className = "l" + (l.isErr ? " err" : "");
+      const who = userById[l.id] || l.id;
+      el.innerHTML = `<b>[${esc(who)}]</b> ${esc(l.line)}`;
+      logBox.appendChild(el);
+      while (logBox.children.length > 800) logBox.removeChild(logBox.firstChild);
+      logBox.scrollTop = logBox.scrollHeight;
+    }
+    function addLog(id, line, isErr) {
+      const l = { id, line, isErr };
+      logs.push(l);
+      while (logs.length > 800) logs.shift();
+      if (logFilter === "all" || logFilter === id) appendLogEl(l);
+    }
+    function rerenderLog() {
+      logBox.innerHTML = "";
+      for (const l of logs) if (logFilter === "all" || logFilter === l.id) appendLogEl(l);
+    }
+
+    // ---- canlı önizleme (çalışan hesaplar için /api/preview/:id pollanır) ----
+    function toggleNoPrev() {
+      $("noPrev").style.display = $("previews").children.length ? "none" : "block";
+    }
+    function renderPreviews() {
+      const grid = $("previews");
+      const running = state.accounts.filter((a) => a.status === "running");
+      const ids = new Set(running.map((a) => a.id));
+      // duran/kaybolan hesapların kartını kaldır
+      for (const card of [...grid.children]) {
+        if (!ids.has(card.dataset.id)) card.remove();
+      }
+      // çalışan hesaplar için kart oluştur
+      for (const a of running) {
+        if (!grid.querySelector(`.pcard[data-id="${a.id}"]`)) {
+          const card = document.createElement("div");
+          card.className = "pcard";
+          card.dataset.id = a.id;
+          card.innerHTML =
+            `<div class="pcap"><span>${esc(a.username)}</span><span class="live">● CANLI</span></div><img alt="önizleme" />`;
+          card.querySelector("img").onclick = (e) => {
+            $("ovImg").src = e.target.src;
+            $("ov").classList.add("show");
+          };
+          grid.appendChild(card);
+        }
+      }
+      toggleNoPrev();
+    }
+    // her ~1 sn önizleme karelerini tazele
+    setInterval(() => {
+      for (const card of $("previews").children) {
+        const img = card.querySelector("img");
+        img.src = "/api/preview/" + card.dataset.id + "?t=" + Date.now();
+      }
+    }, 1000);
+
+    // ---- SSE ----
+    function connect() {
+      const es = new EventSource("/api/events");
+      es.addEventListener("state", (e) => { state = JSON.parse(e.data); applyState(); });
+      es.addEventListener("status", (e) => {
+        const s = JSON.parse(e.data);
+        const a = state.accounts.find((x) => x.id === s.id);
+        if (a) Object.assign(a, s);
+        renderRows();
+        renderPreviews();
+      });
+      es.addEventListener("log", (e) => {
+        const { id, line } = JSON.parse(e.data);
+        addLog(id, line, /hata|error/i.test(line));
+      });
+      es.onerror = () => {/* otomatik yeniden bağlanır */};
+    }
+
+    // ---- işlemler ----
+    $("startBtn").onclick = () => api("/api/start", { method: "POST" });
+    $("stopBtn").onclick = () => api("/api/stop", { method: "POST" });
+
+    $("saveSettings").onclick = async () => {
+      await api("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          maxAccepts: Number($("maxAccepts").value),
+          intervalMinutes: Number($("intervalMinutes").value),
+          headless: $("headless").checked,
+        }),
+      });
+      flash($("saveSettings"), "Kaydedildi ✓");
+    };
+
+    $("addForm").onsubmit = async (e) => {
+      e.preventDefault();
+      $("addErr").textContent = "";
+      const username = $("u").value.trim();
+      const password = $("p").value;
+      if (!username || !password) return;
+      const r = await fetch("/api/accounts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        $("addErr").textContent = j.error || "Eklenemedi";
+        return;
+      }
+      $("u").value = ""; $("p").value = "";
+    };
+
+    window.delAcc = async (id) => {
+      if (!confirm("Bu hesap silinsin mi?")) return;
+      await fetch("/api/accounts/" + id, { method: "DELETE" });
+    };
+
+    window.showShot = (id) => {
+      $("ovImg").src = "/api/screenshot/" + id + "?t=" + Date.now();
+      $("ov").classList.add("show");
+    };
+
+    // ---- yardımcı ----
+    function esc(s) {
+      return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    }
+    function flash(btn, txt) {
+      const old = btn.textContent; btn.textContent = txt;
+      setTimeout(() => (btn.textContent = old), 1200);
+    }
+
+    refresh();
+    connect();
+  </script>
+</body>
+</html>
