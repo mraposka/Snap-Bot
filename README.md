@@ -15,6 +15,21 @@ tarayıcı tabanlı kontrol paneline sahip bir Puppeteer aracı.
 
 ---
 
+## Windows'ta hızlı kurulum (tek tık)
+
+Node.js kurmakla uğraşmak istemiyorsan hazır Windows kurulumunu kullan:
+
+1. `setup` klasöründeki **`SnapBot-Setup.exe`** dosyasına çift tıkla.
+2. Kurulum Node.js'i, uygulamayı ve kütüphaneleri kendisi kurar.
+3. Bitince masaüstünde oluşan **SnapBot** simgesine tıkla — panel tarayıcıda açılır.
+
+Yönetici izni gerekmez; her şey `%LOCALAPPDATA%\SnapBot` altına kurulur.
+Ayrıntılar için [`setup/OKUBENI.txt`](setup/OKUBENI.txt) dosyasına bak.
+
+Aşağıdaki adımlar elle kurulum içindir (macOS/Linux veya geliştirme).
+
+---
+
 ## Gereksinimler
 
 - **Node.js 18 veya üzeri** (geliştirme ortamı: Node 22, npm 10)

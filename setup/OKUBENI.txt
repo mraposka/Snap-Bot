@@ -1,0 +1,82 @@
+====================================================================
+  SnapBot - Kurulum
+====================================================================
+
+KURULUM (tek adım)
+
+  1. SnapBot-Setup.exe dosyasına çift tıkla.
+  2. Kurulum bitene kadar bekle (ilk kurulumda birkaç dakika sürer).
+  3. Bitince masaüstünde "SnapBot" simgesi oluşur.
+
+  Yönetici izni gerekmez. İnternet bağlantısı gerekir
+  (Chromium tarayıcısı indirilir, yaklaşık 150 MB).
+
+
+KULLANIM
+
+  Masaüstündeki SnapBot simgesine çift tıkla.
+  Panel tarayıcıda otomatik açılır:  http://localhost:3000
+
+  Açılan siyah pencereyi KAPATMA - onu kapatınca SnapBot durur.
+
+
+BU KLASÖRDE NE VAR
+
+  SnapBot-Setup.exe            Kurulum programı  <-- BUNU ÇALIŞTIR
+  SnapBot.exe                  Başlatıcı (kurulum masaüstüne kopyalar)
+  Snap-Bot-master.zip          Uygulama dosyaları
+  node-v24.19.0-win-x64.zip    Node.js (taşınabilir)
+  src\                         Exe'lerin kaynak kodu
+
+  Node.js kurulum sırası: taşınabilir zip -> (yoksa) winget.
+  Sistemde zaten Node 18+ varsa o kullanılır, tekrar kurulmaz.
+
+
+NEREYE KURULUR
+
+  C:\Users\<kullanıcı>\AppData\Local\SnapBot
+     node\   Node.js (taşınabilir)
+     app\    Uygulama
+        data\      Hesaplar ve ayarlar
+        sessions\  Oturumlar (çerezler, tarayıcı profilleri)
+
+  Kaldırmak için bu klasörü ve masaüstündeki SnapBot.exe dosyasını sil.
+
+  Kurulumu tekrar çalıştırırsan data\ ve sessions\ klasörlerine dokunulmaz;
+  hesapların ve oturumların korunur.
+
+
+PAKETİ GÜNCELLEME (geliştirici)
+
+  Proje kodunu veya exe kaynaklarını değiştirdiysen paketi yenile:
+
+     powershell -ExecutionPolicy Bypass -File setup\src\build.ps1
+
+  Bu komut exe'leri yeniden derler ve Snap-Bot-master.zip dosyasını
+  güncel koddan yeniden oluşturur.
+
+
+SORUN GİDERME
+
+  "Node.js kurulamadı"
+     https://nodejs.org adresinden Node.js LTS kur,
+     sonra SnapBot-Setup.exe dosyasını tekrar çalıştır.
+
+  "npm install başarısız oldu"
+     İnternet bağlantını kontrol et ve kurulumu tekrar çalıştır.
+     Antivirüs/güvenlik duvarı indirmeyi engelliyor olabilir.
+
+  "Uygulama bulunamadı"
+     Önce SnapBot-Setup.exe ile kurulumu yap.
+
+  Panel açılmıyorsa
+     Tarayıcıdan elle aç: http://localhost:3000
+
+  Windows "bilinmeyen yayıncı" uyarısı verirse
+     Daha fazla bilgi > Yine de çalıştır.
+     (Exe'ler imzalı değildir; kaynak kodları src klasöründedir.)
+
+
+NOT
+  Bu araç yalnızca kendi hesaplarınla kullanılmak üzere hazırlanmıştır.
+====================================================================
