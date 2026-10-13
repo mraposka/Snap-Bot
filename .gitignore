@@ -5,3 +5,7 @@ data/
 cookies.json
 snap-user-data/
 *.png
+*.crx
+extensions/
+Snap-Bot.rar
+graphify-out/

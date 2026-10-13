@@ -36,15 +36,25 @@
     button.primary { background: var(--accent); color: #1a1a00; border-color: var(--accent); font-weight: 700; }
     button.danger { background: transparent; color: var(--red); border-color: #4a2a2a; }
     button.stop { background: var(--red); color: #2a0000; border-color: var(--red); font-weight: 700; }
+    button.panic {
+      background: #3b0d0d; color: #ffb4b4; border-color: var(--red); font-weight: 700;
+      letter-spacing: .3px;
+    }
+    button.panic:hover { background: var(--red); color: #2a0000; border-color: #fff; }
     button:disabled { opacity: .45; cursor: not-allowed; }
     main { padding: 20px; max-width: 1100px; margin: 0 auto; display: grid; gap: 18px; }
     .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
     .card h2 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
+    .card h2.collapsible { cursor: pointer; user-select: none; }
+    .card h2 .caret { display: inline-block; width: 1em; margin-right: 2px; color: var(--muted); font-size: 11px; transition: transform .12s; }
+    .card.collapsed .card-body { display: none; }
+    .card.collapsed h2 { margin-bottom: 0; }
+    .card h2.collapsible:hover { color: var(--text); }
     .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
     .field { display: flex; flex-direction: column; gap: 5px; }
     .field label { font-size: 12px; color: var(--muted); }
     .field small { color: var(--gray); font-size: 11px; }
-    input[type=text], input[type=password], input[type=number] {
+    input[type=text], input[type=password], input[type=number], select {
       background: var(--panel2); border: 1px solid var(--line); color: var(--text);
       border-radius: 8px; padding: 8px 10px; min-width: 120px;
     }
@@ -56,11 +66,16 @@
     th { font-size: 11px; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); }
     td .u { font-weight: 600; }
     .badge { font-size: 12px; padding: 3px 9px; border-radius: 999px; white-space: nowrap; display: inline-block; }
-    .b-idle, .b-stopped { background: #23262e; color: var(--muted); }
+    .b-idle, .b-stopped, .b-queued { background: #23262e; color: var(--muted); }
     .b-running { background: rgba(96,165,250,.15); color: var(--blue); }
     .b-waiting { background: rgba(34,211,238,.13); color: var(--cyan); }
     .b-done { background: rgba(52,211,153,.15); color: var(--green); }
     .b-error { background: rgba(248,113,113,.15); color: var(--red); }
+    .b-limited { background: rgba(251,191,36,.15); color: #fbbf24; }
+    .chip-limit {
+      font-size: 11px; padding: 2px 7px; border-radius: 999px;
+      background: rgba(251,191,36,.13); color: #fbbf24; white-space: nowrap;
+    }
     .count { font-variant-numeric: tabular-nums; font-weight: 700; }
     .muted { color: var(--muted); }
     .err { color: var(--red); font-size: 12px; max-width: 220px; }
@@ -93,10 +108,27 @@
   <header>
     <h1>Snapchat <span class="dot">●</span> Oto-Accept Paneli</h1>
     <span id="runPill" class="pill">Dur: durdu</span>
+    <span id="totalAcceptedPill" class="pill">Toplam kabul: 0</span>
     <div class="spacer"></div>
     <button id="startBtn" class="primary">▶ Başlat</button>
     <button id="stopBtn" class="stop" disabled>■ Durdur</button>
+    <button id="panicBtn" class="panic" title="Her şeyi durdurur ve paneli kapatır">⛔ ACİL DURDUR</button>
   </header>
+
+  <div class="overlay" id="deadOv">
+    <div style="text-align:center; max-width:460px">
+      <div style="font-size:42px">⛔</div>
+      <h2 style="margin:10px 0; font-size:18px; color:var(--text)">Panel durduruldu</h2>
+      <p class="muted" id="deadMsg">
+        Bütün turlar durduruldu, açık tarayıcılar kapatıldı ve sunucu sonlandırıldı.
+        Otomatik story de kapatıldı.
+      </p>
+      <p class="muted" style="font-size:12px">
+        Yeniden başlatmak için komut satırında <b>npm run ui</b> çalıştır
+        (ya da masaüstündeki <b>SnapBot</b> simgesine tıkla).
+      </p>
+    </div>
+  </div>
 
   <main>
     <!-- Ayarlar -->
@@ -111,7 +143,30 @@
         <div class="field">
           <label>Kaç dakikada bir</label>
           <input type="number" id="intervalMinutes" min="0" step="0.5" value="5" />
-          <small>tur bitince bu kadar bekler</small>
+          <small>tüm tur bitince bu kadar bekler</small>
+        </div>
+        <div class="field">
+          <label>Çalışma modu</label>
+          <select id="sequential">
+            <option value="1">Sıralı — hesaplar tek tek</option>
+            <option value="0">Paralel — hepsi aynı anda</option>
+          </select>
+          <small>değişiklik sonraki "Başlat"ta geçerli</small>
+        </div>
+        <div class="field">
+          <label>Hesaplar arası bekleme (dk)</label>
+          <input type="number" id="accountGapMinutes" min="0" step="0.5" value="3" />
+          <small>sıralı modda hesap değişirken bekler</small>
+        </div>
+        <div class="field">
+          <label>Accept arası en az (ms)</label>
+          <input type="number" id="acceptDelayMin" min="0" step="50" value="600" />
+          <small>iki tıklama arası alt sınır</small>
+        </div>
+        <div class="field">
+          <label>Accept arası en çok (ms)</label>
+          <input type="number" id="acceptDelayMax" min="0" step="50" value="1200" />
+          <small>arası rastgele seçilir</small>
         </div>
         <div class="field">
           <label>Tarayıcı modu</label>
@@ -120,8 +175,161 @@
             <label for="headless" style="cursor:pointer">Headless (gizli çalıştır)</label>
           </div>
         </div>
+        <div class="field">
+          <label>Oturum</label>
+          <div class="check" style="height:37px">
+            <input type="checkbox" id="useCookies" />
+            <label for="useCookies" style="cursor:pointer">Çerezleri sakla</label>
+          </div>
+          <small>kapalıysa her turda şifreyle girer</small>
+        </div>
+        <div class="field">
+          <label>Yedek şifreler</label>
+          <input type="text" id="fallbackPasswords" placeholder="murat2609, Murat2609" />
+          <small>hesap şifresi tutmazsa sırayla denenir (virgülle ayır)</small>
+        </div>
+        <div class="field">
+          <label>En fazla giriş denemesi</label>
+          <input type="number" id="maxLoginAttempts" min="1" max="5" step="1" value="2" />
+          <small>bu kadar şifre tutmazsa durur (blok riskine karşı düşük tut)</small>
+        </div>
+        <div class="field">
+          <label>Çalışma saatleri</label>
+          <div class="check" style="height:37px">
+            <input type="checkbox" id="awEnabled" />
+            <label for="awEnabled" style="cursor:pointer">Sadece belirli saatlerde</label>
+          </div>
+          <small>kapalıysa 7/24 çalışır</small>
+        </div>
+        <div class="field">
+          <label>Başlangıç</label>
+          <input type="time" id="awStart" value="09:00" />
+        </div>
+        <div class="field">
+          <label>Bitiş</label>
+          <input type="time" id="awEnd" value="23:00" />
+          <small>gece yarısını aşabilir (22:00→06:00)</small>
+        </div>
         <button id="saveSettings">Ayarları kaydet</button>
       </div>
+    </section>
+
+    <!-- Tarayıcı eklentisi -->
+    <section class="card" id="extCard">
+      <h2 style="display:flex; align-items:center; gap:10px">
+        Tarayıcı eklentisi
+        <span id="extPill" class="badge b-idle" style="text-transform:none; letter-spacing:0">kapalı</span>
+      </h2>
+      <div class="row">
+        <div class="field">
+          <label>Eklentiyi kullan</label>
+          <div class="check" style="height:37px">
+            <input type="checkbox" id="extEnabled" />
+            <label for="extEnabled" style="cursor:pointer">Tarayıcıya eklentiyi yükle</label>
+          </div>
+          <small>eklenti açıkken headless kapanır (pencere görünür)</small>
+        </div>
+        <div class="field" style="flex:1; min-width:280px">
+          <label>Eklenti klasörü (açık/unpacked)</label>
+          <input type="text" id="extPath" placeholder="C:\...\extensions\alarm" />
+          <small id="extState">manifest.json içeren klasör</small>
+        </div>
+        <button id="extSave">Kaydet</button>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button id="extUnpack" class="mini">alarm.crx'i klasöre aç</button>
+        <button id="extSetup" class="mini">Eklentiyi ayarla (bir kez pencere aç)</button>
+      </div>
+      <div class="notice info" style="margin-top:10px">
+        Eklenti profili (<b>data/ext-profile</b>) yalnızca eklentinin <b>kendi ayarını</b> saklar
+        (telefon no vb.). Snapchat <b>login çerezleri her turda temizlenir</b>, oturum saklanmaz.
+        Ayarını bir kez "Eklentiyi ayarla" ile yap, pencereyi kapat; sonra turlar bu ayarı kullanır.
+      </div>
+    </section>
+
+    <!-- Story otomasyonu -->
+    <section class="card" id="storyCard">
+      <h2 style="display:flex; align-items:center; gap:10px">
+        Story otomasyonu
+        <span id="storyPill" class="badge b-idle" style="text-transform:none; letter-spacing:0">kapalı</span>
+      </h2>
+
+      <div class="row">
+        <div class="field">
+          <label>Durum</label>
+          <div class="check" style="height:37px">
+            <input type="checkbox" id="stEnabled" />
+            <label for="stEnabled" style="cursor:pointer">Otomatik story atmayı aç</label>
+          </div>
+        </div>
+        <div class="field">
+          <label>Zamanlama</label>
+          <select id="stMode">
+            <option value="times">Belirli saatlerde</option>
+            <option value="interval">Her N saatte bir</option>
+          </select>
+        </div>
+        <div class="field" id="stTimesField">
+          <label>Saatler</label>
+          <input type="text" id="stTimes" placeholder="12:00, 23:00" />
+          <small>virgülle ayır — günde 2 kez için iki saat yaz</small>
+        </div>
+        <div class="field" id="stIntervalField" style="display:none">
+          <label>Kaç saatte bir</label>
+          <input type="number" id="stInterval" min="0.25" step="0.25" value="12" />
+        </div>
+        <div class="field">
+          <label>Arka plan</label>
+          <input type="color" id="stBgColor" value="#000000" style="min-width:60px; height:37px; padding:3px" />
+          <small>sahte kameranın rengi</small>
+        </div>
+        <div class="field">
+          <label>Kamera</label>
+          <div class="check" style="height:37px">
+            <input type="checkbox" id="stRealCamera" />
+            <label for="stRealCamera" style="cursor:pointer">Gerçek webcam'i kullan</label>
+          </div>
+          <small>kapalıyken odan görünmez</small>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:12px; align-items:flex-start">
+        <div class="field" style="flex:1; min-width:260px">
+          <label>Toplu yazı (tüm hesaplar için varsayılan)</label>
+          <input type="text" id="stText" maxlength="500" placeholder="Story'ye yazılacak metin" />
+          <small>hesabın kendi yazısı varsa o kullanılır</small>
+        </div>
+        <button id="stSave" class="primary">Kaydet</button>
+        <button id="stRunAll">Hepsine şimdi at</button>
+      </div>
+      <div id="stNext" class="muted" style="margin-top:8px; font-size:12px"></div>
+
+      <h2 style="margin-top:18px">Hesap başına yazı</h2>
+      <table>
+        <thead>
+          <tr><th>Kullanıcı</th><th>Story yazısı</th><th>Son paylaşım</th><th>Durum</th><th></th></tr>
+        </thead>
+        <tbody id="stRows"></tbody>
+      </table>
+      <div id="stNoAcc" class="empty">Hesap ekleyince burada görünür.</div>
+    </section>
+
+    <!-- Proxy yönetimi -->
+    <section class="card" id="proxyCard">
+      <h2>Proxy Management <span class="muted" style="font-size:12px">(IPRoyal ISP / Static Residential)</span></h2>
+      <form id="proxyForm" class="row">
+        <input type="hidden" id="proxyId" />
+        <div class="field"><label>Host</label><input id="proxyHost" required placeholder="proxy.example.com" /></div>
+        <div class="field"><label>Port</label><input id="proxyPort" type="number" min="1" max="65535" required placeholder="12345" /></div>
+        <div class="field"><label>Protokol</label><select id="proxyProtocol"><option>http</option><option>https</option><option>socks4</option><option>socks5</option></select></div>
+        <div class="field"><label>Kullanıcı adı</label><input id="proxyUser" autocomplete="off" /></div>
+        <div class="field"><label>Parola</label><input id="proxyPass" type="password" autocomplete="new-password" placeholder="Yeni proxy için gerekli" /></div>
+        <div class="field"><label>Durum</label><div class="check" style="height:37px"><input id="proxyEnabled" type="checkbox" checked /><label for="proxyEnabled">Etkin</label></div></div>
+        <button class="primary" type="submit">Proxy kaydet</button><button type="button" id="proxyCancel">Temizle</button>
+      </form>
+      <small class="muted">Parola yalnızca sunucunun git dışı <b>data/proxies.json</b> dosyasına yazılır; arayüzde maskeli gösterilir.</small>
+      <table style="margin-top:12px"><thead><tr><th>Proxy</th><th>Kimlik</th><th>Durum</th><th>Son test</th><th></th></tr></thead><tbody id="proxyRows"></tbody></table>
+      <div id="noProxy" class="empty">Henüz proxy eklenmedi.</div>
     </section>
 
     <!-- Hesap ekle -->
@@ -143,17 +351,44 @@
 
     <!-- Hesaplar -->
     <section class="card">
-      <h2>Hesaplar</h2>
+      <h2 style="display:flex; align-items:center; gap:10px">
+        Hesaplar
+        <button id="clearAllCookies" class="mini danger" style="text-transform:none; letter-spacing:0">
+          Tüm çerezleri sil
+        </button>
+      </h2>
       <table>
         <thead>
           <tr>
-            <th>Kullanıcı</th><th>Durum</th><th>Kabul</th><th>Son tur</th>
+            <th>Kullanıcı</th><th>Proxy</th><th>Durum</th><th>Kabul</th><th>Son tur</th>
             <th>Sıradaki</th><th>Hata</th><th></th>
           </tr>
         </thead>
         <tbody id="rows"></tbody>
       </table>
       <div id="noAcc" class="empty">Henüz hesap yok. Yukarıdan ekle.</div>
+    </section>
+
+    <!-- Eski hesaplar (sessions klasöründen) -->
+    <section class="card" id="oldCard">
+      <h2 style="display:flex; align-items:center; gap:10px">
+        Eski hesaplar
+        <button id="oldRefresh" class="mini" style="text-transform:none; letter-spacing:0">Yenile</button>
+        <button id="oldRestoreAll" class="mini" style="text-transform:none; letter-spacing:0">Hepsini geri yükle</button>
+      </h2>
+      <table>
+        <thead>
+          <tr><th>Kullanıcı</th><th>Oturum</th><th>Son kullanım</th><th>Durum</th><th></th></tr>
+        </thead>
+        <tbody id="oldRows"></tbody>
+      </table>
+      <div id="noOld" class="empty">Daha önce çalıştırılmış hesap bulunamadı.</div>
+      <small class="muted">
+        Bu liste <b>sessions</b> klasöründeki hesaplardan çıkarılır. <b>Şifreler burada saklanmaz</b>,
+        bu yüzden geri yüklerken şifre sorulur — boş bırakırsan varsayılan <b>murat2609</b> atanır.
+        Sonradan değiştirmek için "Hesap ekle" formuna aynı kullanıcı adını ve doğru şifreyi yaz
+        (kopya oluşmaz, şifresi güncellenir). Kayıtlı çerezi olan hesaplarda şifre gerekmeyebilir.
+      </small>
     </section>
 
     <!-- Canlı önizleme -->
@@ -196,20 +431,39 @@
       $("maxAccepts").value = state.settings.maxAccepts ?? 0;
       $("intervalMinutes").value = state.settings.intervalMinutes ?? 5;
       $("headless").checked = !!state.settings.headless;
+      $("sequential").value = state.settings.sequential === false ? "0" : "1";
+      $("accountGapMinutes").value = state.settings.accountGapMinutes ?? 3;
+      $("acceptDelayMin").value = state.settings.acceptDelayMin ?? 600;
+      $("acceptDelayMax").value = state.settings.acceptDelayMax ?? 1200;
+      $("useCookies").checked = !!state.settings.useCookies;
+      $("fallbackPasswords").value = (state.settings.fallbackPasswords || []).join(", ");
+      $("maxLoginAttempts").value = state.settings.maxLoginAttempts ?? 2;
       // çalışma durumu
       $("runPill").textContent = state.running ? "Durum: çalışıyor" : "Durum: durdu";
       $("runPill").classList.toggle("on", state.running);
+      $("totalAcceptedPill").textContent = "Toplam kabul: " + (state.totalAccepted ?? 0);
       $("startBtn").disabled = state.running;
       $("stopBtn").disabled = !state.running;
       renderRows();
       renderTabs();
       renderPreviews();
+      renderStory();
+      renderExt();
+      renderProxies();
+      // "listede" rozetini hesap listesiyle aynı tut (sunucuya tekrar sormadan)
+      if (oldSessions.length) {
+        const safe = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9._-]/g, "_");
+        const have = new Set(state.accounts.map((a) => safe(a.username)));
+        oldSessions.forEach((s) => (s.inList = have.has(s.name)));
+        renderOld();
+      }
     }
 
     const badge = (s) => {
       const map = {
-        idle: "Bekliyor", running: "Çalışıyor", waiting: "Sırada",
-        done: "Tamamlandı", error: "Hata", stopped: "Durduruldu",
+        idle: "Bekliyor", running: "Çalışıyor", waiting: "Bekliyor",
+        queued: "Sırada", done: "Tamamlandı", error: "Hata", stopped: "Durduruldu",
+        limited: "Limit doldu", story: "Story atılıyor",
       };
       return `<span class="badge b-${s || "idle"}">${map[s] || s || "—"}</span>`;
     };
@@ -223,17 +477,29 @@
         const tr = document.createElement("tr");
         tr.innerHTML = `
           <td class="u">${esc(a.username)}</td>
+          <td><select class="acc-proxy" data-id="${a.id}"><option value="">Proxy yok</option>${(state.proxies || []).map(p => `<option value="${esc(p.id)}" ${a.proxyId === p.id ? "selected" : ""}>${esc(p.host)}:${p.port}${p.enabled ? "" : " (kapalı)"}</option>`).join("")}</select></td>
           <td>${badge(a.status)}</td>
           <td class="count">${a.accepted ?? 0}</td>
           <td class="muted">${fmtTime(a.lastRun)}</td>
           <td class="muted" data-next="${a.nextRunAt || ""}">${nextText(a)}</td>
-          <td class="err">${a.lastError ? esc(a.lastError) : ""}</td>
+          <td class="err">${
+            a.lastError
+              ? esc(a.lastError)
+              : a.lastLimited
+              ? '<span class="chip-limit">son turda limit doldu</span>'
+              : ""
+          }</td>
           <td style="white-space:nowrap">
             <button class="mini" onclick="showShot('${a.id}')">SS</button>
+            <button class="mini danger" onclick="clearCookies('${a.id}')">Çerez</button>
             <button class="mini danger" onclick="delAcc('${a.id}')">Sil</button>
           </td>`;
         tb.appendChild(tr);
       }
+      tb.querySelectorAll("select.acc-proxy").forEach((sel) => sel.onchange = async () => {
+        const r = await fetch("/api/accounts/" + sel.dataset.id + "/proxy", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ proxyId: sel.value || null }) });
+        if (!r.ok) { const j = await r.json().catch(() => ({})); alert(j.error || "Proxy atanamadı"); await refresh(); }
+      });
     }
 
     function nextText(a) {
@@ -293,7 +559,8 @@
     }
     function renderPreviews() {
       const grid = $("previews");
-      const running = state.accounts.filter((a) => a.status === "running");
+      // "story" = hikaye turu; onun da ekranı canlı izlenebilmeli
+      const running = state.accounts.filter((a) => a.status === "running" || a.status === "story");
       const ids = new Set(running.map((a) => a.id));
       // duran/kaybolan hesapların kartını kaldır
       for (const card of [...grid.children]) {
@@ -339,12 +606,46 @@
         const { id, line } = JSON.parse(e.data);
         addLog(id, line, /hata|error/i.test(line));
       });
-      es.onerror = () => {/* otomatik yeniden bağlanır */};
+      es.addEventListener("panic", () => showDead());
+      es.onerror = () => {
+        // Acil durdurmadan sonra sunucu kapanır; yeniden bağlanmayı bırak
+        if (panicked) es.close();
+      };
     }
 
     // ---- işlemler ----
     $("startBtn").onclick = () => api("/api/start", { method: "POST" });
     $("stopBtn").onclick = () => api("/api/stop", { method: "POST" });
+
+    // ---- acil durdurma ----
+    let panicked = false;
+    function showDead(msg) {
+      panicked = true;
+      if (msg) $("deadMsg").textContent = msg;
+      $("deadOv").classList.add("show");
+      document.querySelectorAll("button, input, select").forEach((el) => {
+        if (!$("deadOv").contains(el)) el.disabled = true;
+      });
+    }
+    $("panicBtn").onclick = async () => {
+      const ok = confirm(
+        "ACİL DURDURMA\n\n" +
+          "• Çalışan bütün turlar durur\n" +
+          "• Açık tarayıcılar zorla kapatılır\n" +
+          "• Otomatik story kapatılır\n" +
+          "• Panel sunucusu (localhost) sonlandırılır\n\n" +
+          "Devam edilsin mi?"
+      );
+      if (!ok) return;
+      $("panicBtn").disabled = true;
+      $("panicBtn").textContent = "Durduruluyor…";
+      try {
+        await fetch("/api/panic", { method: "POST" });
+      } catch {
+        /* sunucu yanıt vermeden kapanmış olabilir, sorun değil */
+      }
+      showDead();
+    };
 
     $("saveSettings").onclick = async () => {
       await api("/api/settings", {
@@ -354,6 +655,13 @@
           maxAccepts: Number($("maxAccepts").value),
           intervalMinutes: Number($("intervalMinutes").value),
           headless: $("headless").checked,
+          sequential: $("sequential").value === "1",
+          accountGapMinutes: Number($("accountGapMinutes").value),
+          acceptDelayMin: Number($("acceptDelayMin").value),
+          acceptDelayMax: Number($("acceptDelayMax").value),
+          useCookies: $("useCookies").checked,
+          fallbackPasswords: $("fallbackPasswords").value,
+          maxLoginAttempts: Number($("maxLoginAttempts").value),
         }),
       });
       flash($("saveSettings"), "Kaydedildi ✓");
@@ -383,8 +691,323 @@
       await fetch("/api/accounts/" + id, { method: "DELETE" });
     };
 
+    window.clearCookies = async (id) => {
+      const name = userById[id] || "bu hesap";
+      if (!confirm(name + " için kayıtlı oturum (çerez + tarayıcı profili) silinsin mi?")) return;
+      const r = await fetch("/api/sessions/" + id, { method: "DELETE" });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) return alert(j.error || "Silinemedi");
+      alert(j.removed && j.removed.length ? "Oturum silindi." : "Silinecek oturum yoktu.");
+    };
+
+    $("clearAllCookies").onclick = async () => {
+      if (!confirm("TÜM hesapların kayıtlı oturumu silinsin mi?")) return;
+      const r = await fetch("/api/sessions", { method: "DELETE" });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) return alert(j.error || "Silinemedi");
+      alert(
+        j.cleared && j.cleared.length
+          ? "Oturumu silinen hesaplar: " + j.cleared.join(", ")
+          : "Silinecek oturum yoktu."
+      );
+    };
+
     window.showShot = (id) => {
       $("ovImg").src = "/api/screenshot/" + id + "?t=" + Date.now();
+      $("ov").classList.add("show");
+    };
+
+    // ---- Eski hesaplar (sessions klasöründen) ----
+    let oldSessions = [];
+
+    async function loadOldSessions() {
+      try {
+        oldSessions = await api("/api/sessions/known");
+      } catch {
+        oldSessions = [];
+      }
+      renderOld();
+    }
+
+    function renderOld() {
+      const tb = $("oldRows");
+      tb.innerHTML = "";
+      $("noOld").style.display = oldSessions.length ? "none" : "block";
+      const restorable = oldSessions.filter((s) => !s.inList);
+      $("oldRestoreAll").style.display = restorable.length ? "" : "none";
+      for (const s of oldSessions) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td class="u">${esc(s.name)}${s.packaged ? ' <span class="muted" style="font-size:11px">(kurulu sürümden)</span>' : ""}</td>
+          <td>${
+            s.hasCookies
+              ? '<span class="badge b-done">çerez var</span>'
+              : '<span class="muted">şifre gerekir</span>'
+          }</td>
+          <td class="muted">${s.lastSeen ? new Date(s.lastSeen).toLocaleString("tr-TR") : "—"}</td>
+          <td>${s.inList ? '<span class="badge b-idle">listede</span>' : '<span class="muted">listede değil</span>'}</td>
+          <td style="white-space:nowrap">${
+            s.inList ? "" : `<button class="mini" onclick="restoreOld('${esc(s.name)}')">Geri yükle</button>`
+          }</td>`;
+        tb.appendChild(tr);
+      }
+    }
+
+    const VARSAYILAN_SIFRE = "murat2609";
+
+    // Şifreyi sorar. İptal edilirse null (işlem yapılmaz), boş bırakılırsa varsayılan.
+    function sifreSor(baslik) {
+      const girilen = prompt(
+        `${baslik}\n\nŞifreyi gir. Boş bırakırsan varsayılan "${VARSAYILAN_SIFRE}" atanır ` +
+          `(sonra 'Hesap ekle' bölümünden değiştirebilirsin).`,
+        VARSAYILAN_SIFRE
+      );
+      if (girilen === null) return null; // iptal
+      return girilen.trim() === "" ? VARSAYILAN_SIFRE : girilen;
+    }
+
+    window.restoreOld = async (name) => {
+      const password = sifreSor(`${name} hesabı listeye geri yüklenecek.`);
+      if (password === null) return;
+      const r = await fetch("/api/sessions/restore", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, password }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) return alert(j.error || "Geri yüklenemedi");
+      await loadOldSessions();
+      if (j.added && j.added.length) {
+        alert(
+          `${j.added.join(", ")} listeye eklendi.` +
+            (j.usedDefault
+              ? `\n\nVarsayılan şifre (${VARSAYILAN_SIFRE}) atandı. Gerçek şifreyi 'Hesap ekle' bölümünden aynı kullanıcı adıyla gir.`
+              : "")
+        );
+      }
+    };
+
+    $("oldRefresh").onclick = loadOldSessions;
+    $("oldRestoreAll").onclick = async () => {
+      const names = oldSessions.filter((s) => !s.inList).map((s) => s.name);
+      if (!names.length) return;
+      if (!confirm(`${names.length} hesap listeye geri eklensin mi?\n\n${names.join(", ")}`)) return;
+      const password = sifreSor(`${names.length} hesabın hepsine aynı şifre atanacak.`);
+      if (password === null) return;
+      const r = await fetch("/api/sessions/restore", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ names, password }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) return alert(j.error || "Geri yüklenemedi");
+      await loadOldSessions();
+      alert(
+        `${(j.added || []).length} hesap eklendi.` +
+          (j.usedDefault
+            ? `\n\nHepsine varsayılan şifre (${VARSAYILAN_SIFRE}) atandı. Gerçek şifreleri 'Hesap ekle' bölümünden girmen gerekiyor.`
+            : "")
+      );
+    };
+
+    // ---- Tarayıcı eklentisi ----
+    let extDirty = false;
+    function renderExt() {
+      const e = state.extension || {};
+      $("extPill").textContent = e.active ? "aktif" : e.enabled ? "hazır değil" : "kapalı";
+      $("extPill").className = "badge " + (e.active ? "b-done" : e.enabled ? "b-limited" : "b-idle");
+      if (!extDirty) {
+        $("extEnabled").checked = !!e.enabled;
+        $("extPath").value = e.path || "";
+      }
+      $("extState").textContent = e.ready
+        ? "✓ bulundu: " + (e.name || "eklenti")
+        : "manifest.json bulunamadı — 'alarm.crx'i klasöre aç' ya da doğru klasörü gir";
+      $("extState").style.color = e.ready ? "var(--green)" : "var(--gray)";
+    }
+    ["extEnabled", "extPath"].forEach((id) => $(id).addEventListener("input", () => (extDirty = true)));
+    $("extSave").onclick = async () => {
+      await api("/api/extension/settings", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: $("extEnabled").checked, path: $("extPath").value }),
+      });
+      extDirty = false;
+      flash($("extSave"), "Kaydedildi ✓");
+    };
+    $("extUnpack").onclick = async () => {
+      const btn = $("extUnpack"); btn.disabled = true; btn.textContent = "Açılıyor…";
+      try {
+        const r = await fetch("/api/extension/unpack", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) alert(j.error || "Açılamadı");
+        else alert(`Eklenti açıldı: ${j.name} (${j.version})`);
+      } finally { btn.disabled = false; btn.textContent = "alarm.crx'i klasöre aç"; }
+    };
+    $("extSetup").onclick = async () => {
+      const r = await fetch("/api/extension/setup", { method: "POST" });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) return alert(j.error || "Açılamadı");
+      alert("Ayar penceresi açıldı. Eklentinin ayarını yap, sonra o pencereyi kapat.");
+    };
+
+    // ---- Proxy management ----
+    let proxyEdit = null;
+    function renderProxies() {
+      const list = state.proxies || [];
+      $("noProxy").style.display = list.length ? "none" : "block";
+      const tb = $("proxyRows"); tb.innerHTML = "";
+      for (const p of list) {
+        const t = p.lastTest;
+        const test = t ? (t.ok ? `✓ ${esc(t.ip || "?")} ${t.country ? "(" + esc(t.country) + ")" : ""} · ${t.latencyMs ?? "?"}ms` : `Hata: ${esc(t.error || "başarısız")}`) : "Test edilmedi";
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td class="u">${esc(p.protocol)}://${esc(p.host)}:${p.port}</td><td>${p.username ? "••••••••" : "yok"}</td><td>${p.enabled ? '<span class="badge b-done">etkin</span>' : '<span class="badge b-stopped">kapalı</span>'}</td><td class="muted">${test}<br>Son başarılı: ${p.lastSuccessfulAt ? esc(new Date(p.lastSuccessfulAt).toLocaleString("tr-TR")) : "yok"}</td><td style="white-space:nowrap"><button class="mini" onclick="testProxyNow('${esc(p.id)}')">Test</button> <button class="mini" onclick="editProxy('${esc(p.id)}')">Düzenle</button> <button class="mini danger" onclick="deleteProxy('${esc(p.id)}')">Sil</button></td>`;
+        tb.appendChild(tr);
+      }
+    }
+    window.editProxy = (id) => {
+      const p = (state.proxies || []).find(x => x.id === id); if (!p) return;
+      proxyEdit = p; $("proxyId").value = p.id; $("proxyHost").value = p.host; $("proxyPort").value = p.port; $("proxyProtocol").value = p.protocol; $("proxyUser").value = ""; $("proxyPass").value = ""; $("proxyPass").placeholder = "Boş bırakırsan mevcut parola korunur"; $("proxyEnabled").checked = p.enabled;
+    };
+    $("proxyCancel").onclick = () => { proxyEdit = null; $("proxyForm").reset(); $("proxyEnabled").checked = true; $("proxyPass").placeholder = "Yeni proxy için gerekli"; };
+    $("proxyForm").onsubmit = async (e) => {
+      e.preventDefault();
+      const body = { id: $("proxyId").value || undefined, host: $("proxyHost").value, port: Number($("proxyPort").value), protocol: $("proxyProtocol").value, username: $("proxyUser").value, enabled: $("proxyEnabled").checked };
+      if ($("proxyPass").value) body.password = $("proxyPass").value;
+      const r = await fetch("/api/proxies", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const j = await r.json().catch(() => ({})); if (!r.ok) return alert(j.error || "Proxy kaydedilemedi");
+      $("proxyCancel").click(); await refresh();
+    };
+    window.testProxyNow = async (id) => {
+      const r = await fetch("/api/proxies/" + id + "/test", { method: "POST" }); const j = await r.json().catch(() => ({}));
+      if (!r.ok) alert(j.error || j.proxy?.lastTest?.error || "Proxy testi başarısız"); await refresh();
+    };
+    window.deleteProxy = async (id) => {
+      if (!confirm("Bu proxy silinsin mi?")) return;
+      const r = await fetch("/api/proxies/" + id, { method: "DELETE" }); const j = await r.json().catch(() => ({}));
+      if (!r.ok) alert(j.error || "Proxy silinemedi"); else await refresh();
+    };
+
+    // ---- Story otomasyonu ----
+    let storyDirty = false; // kullanıcı ayarları düzenlerken üzerine yazma
+
+    function renderStory() {
+      const s = state.settings.story || {};
+      const w = state.settings.acceptWindow || {};
+
+      $("storyPill").textContent = s.enabled ? "açık" : "kapalı";
+      $("storyPill").className = "badge " + (s.enabled ? "b-done" : "b-idle");
+
+      if (!storyDirty) {
+        $("stEnabled").checked = !!s.enabled;
+        $("stMode").value = s.mode === "interval" ? "interval" : "times";
+        $("stTimes").value = (s.times || []).join(", ");
+        $("stInterval").value = s.intervalHours ?? 12;
+        $("stText").value = s.text || "";
+        $("stBgColor").value = s.bgColor || "#000000";
+        $("stRealCamera").checked = !!s.realCamera;
+        $("awEnabled").checked = !!w.enabled;
+        $("awStart").value = w.start || "09:00";
+        $("awEnd").value = w.end || "23:00";
+      }
+      const interval = $("stMode").value === "interval";
+      $("stTimesField").style.display = interval ? "none" : "flex";
+      $("stIntervalField").style.display = interval ? "flex" : "none";
+
+      // sıradaki paylaşım
+      const next = state.accounts.find((a) => a.story && a.story.nextAt);
+      $("stNext").textContent = s.enabled
+        ? next
+          ? "Sıradaki paylaşım: " + new Date(next.story.nextAt).toLocaleString("tr-TR")
+          : "Zamanlama için geçerli saat gir."
+        : "Otomatik paylaşım kapalı — yine de “şimdi at” ile elle gönderebilirsin.";
+
+      // hesap başına satırlar — kullanıcı bir kutuya yazıyorsa yeniden çizme
+      const tb = $("stRows");
+      if (tb.contains(document.activeElement) && document.activeElement.tagName === "INPUT") return;
+      tb.innerHTML = "";
+      $("stNoAcc").style.display = state.accounts.length ? "none" : "block";
+      for (const a of state.accounts) {
+        const st = a.story || {};
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td class="u">${esc(a.username)}</td>
+          <td><input type="text" class="st-text" data-id="${a.id}" maxlength="500"
+                     placeholder="(toplu yazı kullanılır)" style="width:100%"
+                     value="${esc(a.storyText || "")}" /></td>
+          <td class="muted">${st.lastOk ? new Date(st.lastOk).toLocaleString("tr-TR") : "—"}</td>
+          <td>${
+            st.running
+              ? '<span class="badge b-running">Atılıyor</span>'
+              : st.lastError
+              ? `<span class="err">${esc(st.lastError)}</span>`
+              : st.lastOk
+              ? '<span class="badge b-done">Paylaşıldı</span>'
+              : '<span class="muted">—</span>'
+          }</td>
+          <td style="white-space:nowrap">
+            <button class="mini" onclick="storyNow('${a.id}')">Şimdi at</button>
+            <button class="mini" onclick="storyShot('${a.id}')">SS</button>
+          </td>`;
+        tb.appendChild(tr);
+      }
+      // yazıyı alanı terk edince kaydet
+      tb.querySelectorAll("input.st-text").forEach((inp) => {
+        inp.onchange = async () => {
+          await fetch("/api/accounts/" + inp.dataset.id + "/story-text", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: inp.value }),
+          });
+          inp.style.borderColor = "var(--green)";
+          setTimeout(() => (inp.style.borderColor = ""), 1200);
+        };
+      });
+    }
+
+    ["stEnabled", "stMode", "stTimes", "stInterval", "stText", "stBgColor", "stRealCamera",
+     "awEnabled", "awStart", "awEnd"].forEach((id) =>
+      $(id).addEventListener("input", () => { storyDirty = true; if (id === "stMode") renderStory(); })
+    );
+    $("stMode").addEventListener("change", renderStory);
+
+    $("stSave").onclick = async () => {
+      await api("/api/story/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          enabled: $("stEnabled").checked,
+          mode: $("stMode").value,
+          times: $("stTimes").value,
+          intervalHours: Number($("stInterval").value),
+          text: $("stText").value,
+          bgColor: $("stBgColor").value,
+          realCamera: $("stRealCamera").checked,
+          acceptWindow: {
+            enabled: $("awEnabled").checked,
+            start: $("awStart").value,
+            end: $("awEnd").value,
+          },
+        }),
+      });
+      storyDirty = false;
+      flash($("stSave"), "Kaydedildi ✓");
+    };
+
+    $("stRunAll").onclick = async () => {
+      if (!confirm("Tüm hesaplara şimdi story atılsın mı?")) return;
+      const r = await fetch("/api/story/run-all", { method: "POST" });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) return alert(j.error || "Başlatılamadı");
+      flash($("stRunAll"), j.queued + " hesap sıraya alındı");
+    };
+
+    window.storyNow = async (id) => {
+      const r = await fetch("/api/story/run/" + id, { method: "POST" });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) return alert(j.error || "Başlatılamadı");
+    };
+    window.storyShot = (id) => {
+      $("ovImg").src = "/api/story/shot/" + id + "?t=" + Date.now();
       $("ov").classList.add("show");
     };
 
@@ -397,8 +1020,53 @@
       setTimeout(() => (btn.textContent = old), 1200);
     }
 
+    // ---- bölümleri katla/aç (başlığa tıkla; tercih tarayıcıda saklanır) ----
+    (function setupCollapse() {
+      let collapsed = {};
+      try { collapsed = JSON.parse(localStorage.getItem("snapbot-collapsed") || "{}"); } catch {}
+      const save = () => { try { localStorage.setItem("snapbot-collapsed", JSON.stringify(collapsed)); } catch {} };
+
+      document.querySelectorAll("main > section.card").forEach((card, i) => {
+        const h2 = card.querySelector("h2");
+        if (!h2 || h2.dataset.collapseReady) return;
+        h2.dataset.collapseReady = "1";
+
+        // Anahtar: başlığın yalnızca metni (içindeki butonlar/rozetler hariç)
+        let key = "";
+        for (const n of h2.childNodes) if (n.nodeType === 3) key += n.textContent;
+        key = key.trim() || "bolum-" + i;
+
+        // Başlıktan sonraki her şeyi katlanabilir bir gövdeye taşı
+        const body = document.createElement("div");
+        body.className = "card-body";
+        while (h2.nextSibling) body.appendChild(h2.nextSibling);
+        card.appendChild(body);
+
+        const caret = document.createElement("span");
+        caret.className = "caret";
+        h2.insertBefore(caret, h2.firstChild);
+        h2.classList.add("collapsible");
+
+        const apply = () => {
+          const isC = !!collapsed[key];
+          card.classList.toggle("collapsed", isC);
+          caret.textContent = isC ? "▸" : "▾";
+        };
+        apply();
+
+        h2.addEventListener("click", (e) => {
+          // Başlıktaki butona/inputa tıklama katlamayı tetiklemesin
+          if (e.target.closest("button, a, input, select, label")) return;
+          collapsed[key] = !collapsed[key];
+          save();
+          apply();
+        });
+      });
+    })();
+
     refresh();
     connect();
+    loadOldSessions();
   </script>
 </body>
 </html>
